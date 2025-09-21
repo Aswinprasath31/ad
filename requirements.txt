@@ -1,0 +1,33 @@
+# Streamlit frontend
+streamlit==1.38.0
+
+# Hugging Face Transformers for text generation
+transformers==4.42.2
+
+# PyTorch backend (CPU version; switch to CUDA if using GPU)
+torch==2.2.0
+
+# Sentence Transformers for semantic scoring
+sentence-transformers==2.2.2
+
+# Text-to-speech
+pyttsx3==2.90
+
+# Voice input
+SpeechRecognition==3.9.0
+pyaudio==0.2.13
+
+# Data handling
+pandas==2.1.1
+
+# Interactive charts
+altair==5.0.1
+
+# PDF report generation
+fpdf==1.7.2
+
+# Optional plotting
+matplotlib==3.8.1
+
+# Optional, for sentence similarity calculations
+scipy==1.11.1
