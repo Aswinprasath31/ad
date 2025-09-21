@@ -1,13 +1,22 @@
 import streamlit as st
+import os
+import platform
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from sentence_transformers import SentenceTransformer, util
 import pyttsx3
-import speech_recognition as sr
 import pandas as pd
 import altair as alt
 import io
 from fpdf import FPDF
 import random
+
+# ----------------- CLOUD DETECTION -----------------
+IS_CLOUD = "STREAMLIT_CLOUD" in os.environ or platform.system() == "Linux"
+if IS_CLOUD:
+    voice_input = False
+    st.sidebar.info("Voice input/output disabled on Streamlit Cloud")
+else:
+    voice_input = st.sidebar.checkbox("Enable Voice Input")
 
 # ----------------- PAGE CONFIG -----------------
 st.set_page_config(page_title="AI Interviewer Platform", page_icon="🤖", layout="wide")
@@ -16,17 +25,7 @@ st.set_page_config(page_title="AI Interviewer Platform", page_icon="🤖", layou
 st.markdown("""
 <style>
 body {background: linear-gradient(to right, #f5f7fa, #c3cfe2);}
-.card {
-    background: #fff; 
-    padding:15px; 
-    border-radius:15px; 
-    margin-bottom:15px; 
-    box-shadow: 2px 2px 15px rgba(0,0,0,0.1);
-}
-.score-bar {
-    height: 18px;
-    border-radius: 9px;
-}
+.card {background: #fff; padding:15px; border-radius:15px; margin-bottom:15px; box-shadow: 2px 2px 15px rgba(0,0,0,0.1);}
 </style>
 """, unsafe_allow_html=True)
 
@@ -36,20 +35,41 @@ def load_models():
     tokenizer = AutoTokenizer.from_pretrained("aswinprasath31/interviewer-bot-finetuned-v1")
     model = AutoModelForCausalLM.from_pretrained("aswinprasath31/interviewer-bot-finetuned-v1")
     pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device=-1)
-    
     embedder = SentenceTransformer('all-MiniLM-L6-v2')
     return pipe, embedder
 
 generator, embedder = load_models()
 
-# ----------------- TTS -----------------
-engine = pyttsx3.init()
-engine.setProperty('rate',150)
+# ----------------- TTS (only local) -----------------
+if not IS_CLOUD:
+    import pyttsx3
+    import speech_recognition as sr
+    engine = pyttsx3.init()
+    engine.setProperty('rate',150)
+
+    def speak_text(text):
+        engine.say(text)
+        engine.runAndWait()
+
+    def record_audio():
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            st.info("Listening... Speak now!")
+            audio = r.listen(source, phrase_time_limit=8)
+        try:
+            return r.recognize_google(audio)
+        except:
+            return ""
+else:
+    def speak_text(text):
+        pass
+    def record_audio():
+        st.warning("Voice input not available on Streamlit Cloud")
+        return ""
 
 # ----------------- SIDEBAR -----------------
 st.sidebar.header("Settings")
 topic = st.sidebar.selectbox("Topic", ["Data Science", "Python", "Machine Learning", "General"])
-voice_input = st.sidebar.checkbox("Enable Voice Input")
 restart = st.sidebar.button("Restart Interview")
 download_report = st.sidebar.button("Download Full PDF Report")
 
@@ -87,21 +107,6 @@ def semantic_score(user_answer, ideal_answer):
     emb2 = embedder.encode(ideal_answer, convert_to_tensor=True)
     sim = util.pytorch_cos_sim(emb1, emb2).item()
     return round(sim*100,2)
-
-def speak_text(text):
-    engine.say(text)
-    engine.runAndWait()
-
-def record_audio():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("Listening... Speak now!")
-        audio = r.listen(source, phrase_time_limit=8)
-    try:
-        text = r.recognize_google(audio)
-    except:
-        text=""
-    return text
 
 def select_question():
     qs = [q for q in questions_dict[topic] if q["level"]==st.session_state.level]
